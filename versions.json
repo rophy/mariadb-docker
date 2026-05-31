@@ -1,9 +1,9 @@
 {
   "13.0": {
     "milestone": "13.0",
-    "version": "13.0.0",
-    "fullVersion": "1:13.0.0+maria~ubu2604",
-    "releaseStatus": "Preview",
+    "version": "13.0.1",
+    "fullVersion": "1:13.0.1+maria~ubu2604",
+    "releaseStatus": "RC",
     "supportType": "Rolling",
     "base": "ubuntu:resolute",
     "arches": [
@@ -15,9 +15,9 @@
   },
   "13.0-ubi": {
     "milestone": "13.0",
-    "version": "13.0.0",
-    "fullVersion": "13.0.0",
-    "releaseStatus": "Preview",
+    "version": "13.0.1",
+    "fullVersion": "13.0.1",
+    "releaseStatus": "RC",
     "supportType": "Rolling",
     "base": "redhat/ubi10-minimal",
     "arches": [
@@ -29,9 +29,9 @@
   },
   "12.3": {
     "milestone": "12.3",
-    "version": "12.3.1",
-    "fullVersion": "1:12.3.1+maria~ubu2404",
-    "releaseStatus": "RC",
+    "version": "12.3.2",
+    "fullVersion": "1:12.3.2+maria~ubu2404",
+    "releaseStatus": "Stable",
     "supportType": "Long Term Support",
     "base": "ubuntu:noble",
     "arches": [
@@ -43,38 +43,10 @@
   },
   "12.3-ubi": {
     "milestone": "12.3",
-    "version": "12.3.1",
-    "fullVersion": "12.3.1",
-    "releaseStatus": "RC",
+    "version": "12.3.2",
+    "fullVersion": "12.3.2",
+    "releaseStatus": "Stable",
     "supportType": "Long Term Support",
-    "base": "redhat/ubi10-minimal",
-    "arches": [
-      "amd64",
-      "arm64v8",
-      "ppc64le",
-      "s390x"
-    ]
-  },
-  "12.2": {
-    "milestone": "12.2",
-    "version": "12.2.2",
-    "fullVersion": "1:12.2.2+maria~ubu2404",
-    "releaseStatus": "Stable",
-    "supportType": "Rolling",
-    "base": "ubuntu:noble",
-    "arches": [
-      "amd64",
-      "arm64v8",
-      "ppc64le",
-      "s390x"
-    ]
-  },
-  "12.2-ubi": {
-    "milestone": "12.2",
-    "version": "12.2.2",
-    "fullVersion": "12.2.2",
-    "releaseStatus": "Stable",
-    "supportType": "Rolling",
     "base": "redhat/ubi10-minimal",
     "arches": [
       "amd64",
