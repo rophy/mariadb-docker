@@ -1,4 +1,41 @@
 # vim:set ft=dockerfile:
+
+# Build mariadb-auth-k8s plugin
+FROM ubuntu:jammy AS auth-k8s-build
+ARG AUTH_K8S_VERSION=0.1
+ARG AUTH_K8S_MARIADB_VERSION=10.11.18
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		build-essential cmake pkg-config \
+		libmariadb-dev libcurl4-openssl-dev libjson-c-dev \
+		ca-certificates wget git; \
+	rm -rf /var/lib/apt/lists/*; \
+	git clone --depth 1 --branch "mariadb-${AUTH_K8S_MARIADB_VERSION}" \
+		https://github.com/MariaDB/server.git /tmp/mariadb-server; \
+	mkdir -p /opt/include; \
+	cp -r /tmp/mariadb-server/include/* /opt/include/; \
+	if [ -f /opt/include/mysql_version.h.in ]; then \
+		VERSION_MAJOR=$(echo "${AUTH_K8S_MARIADB_VERSION}" | cut -d. -f1); \
+		VERSION_MINOR=$(echo "${AUTH_K8S_MARIADB_VERSION}" | cut -d. -f2); \
+		VERSION_PATCH=$(echo "${AUTH_K8S_MARIADB_VERSION}" | cut -d. -f3); \
+		sed "s/@MYSQL_VERSION_MAJOR@/${VERSION_MAJOR}/g; \
+			s/@MYSQL_VERSION_MINOR@/${VERSION_MINOR}/g; \
+			s/@MYSQL_VERSION_PATCH@/${VERSION_PATCH}/g; \
+			s/@PROTOCOL_VERSION@/10/g; \
+			s/@MARIADB_PACKAGE_VERSION@/\"${AUTH_K8S_MARIADB_VERSION}\"/g; \
+			s/@MARIADB_BASE_VERSION@/\"mariadb-${VERSION_MAJOR}.${VERSION_MINOR}\"/g; \
+			s/@CMAKE_SYSTEM_NAME@/\"Linux\"/g; \
+			s/@MACHINE_TYPE@/\"x86_64\"/g" \
+			/opt/include/mysql_version.h.in > /opt/include/mysql_version.h; \
+	fi; \
+	rm -rf /tmp/mariadb-server; \
+	wget -q -O /tmp/mariadb-auth-k8s.tar.gz \
+		"https://github.com/rophy/mariadb-auth-k8s/releases/download/${AUTH_K8S_VERSION}/mariadb-auth-k8s-${AUTH_K8S_VERSION}.tar.gz"; \
+	mkdir /build && cd /build; \
+	tar xzf /tmp/mariadb-auth-k8s.tar.gz --strip-components=1; \
+	cmake . && make
+
 FROM ubuntu:jammy
 
 # add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
@@ -113,6 +150,7 @@ RUN set -ex; \
 	mkdir -p /var/lib/mysql/mysql ; touch /var/lib/mysql/mysql/user.frm ; \
 # mariadb-backup is installed at the same time so that `mysql-common` is only installed once from just mariadb repos
 	apt-get install -y --no-install-recommends mariadb-server="$MARIADB_VERSION" mariadb-backup socat \
+		libcurl4 libjson-c5 \
 	; \
 	rm -rf /var/lib/apt/lists/*; \
 # purge and re-create /var/lib/mysql with appropriate ownership
@@ -133,6 +171,8 @@ RUN set -ex; \
 		sed -i -e '/includedir/ {N;s/\(.*\)\n\(.*\)/\n\2\n\1/}' /etc/mysql/mariadb.cnf; \
 	fi
 
+
+COPY --from=auth-k8s-build /build/auth_k8s.so /usr/lib/mysql/plugin/auth_k8s.so
 
 VOLUME /var/lib/mysql
 
