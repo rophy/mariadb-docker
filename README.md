@@ -1,3 +1,42 @@
+# Custom MariaDB Docker Image
+
+Fork of the official [MariaDB Docker image](https://github.com/MariaDB/mariadb-docker) with bundled third-party plugins.
+
+**Image:** `ghcr.io/rophy/mariadb-server`
+
+## Bundled Plugins
+
+| Plugin | Version | Description |
+|--------|---------|-------------|
+| [mariadb-auth-k8s](https://github.com/rophy/mariadb-auth-k8s) | 0.2 | Kubernetes ServiceAccount JWT authentication |
+| [lib_mysqludf_aes256](https://github.com/rophy/lib_mysqludf_aes256) | 1.1.0 | AES-256 encrypt/decrypt UDF functions |
+
+### mariadb-auth-k8s
+
+Authenticates MariaDB users via Kubernetes ServiceAccount tokens (TokenReview API). Load with:
+
+```ini
+[mysqld]
+plugin_load_add = auth_k8s
+auth_k8s_token_path = /var/run/secrets/tokenreviewer/token
+auth_k8s_ca_path = /var/run/secrets/tokenreviewer/ca.crt
+```
+
+```sql
+CREATE USER 'namespace/serviceaccount'@'%' IDENTIFIED VIA auth_k8s;
+```
+
+### lib_mysqludf_aes256
+
+AES-256 encrypt/decrypt UDFs, auto-registered on first container startup.
+
+```sql
+SELECT aes256_decrypt(aes256_encrypt('plaintext', 'secret-key'), 'secret-key');
+-- Returns: plaintext
+```
+
+---
+
 # Docker Library Official Image for MariaDB
 
 This is the Git repository of the [Docker Library "Official Image"](https://github.com/docker-library/official-images#what-are-official-images) for [`mariadb`](https://hub.docker.com/_/mariadb/).
