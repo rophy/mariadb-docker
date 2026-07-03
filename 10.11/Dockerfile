@@ -2,7 +2,7 @@
 
 # Build mariadb-auth-k8s plugin
 FROM ubuntu:jammy AS auth-k8s-build
-ARG AUTH_K8S_VERSION=0.1
+ARG AUTH_K8S_VERSION=0.2
 ARG AUTH_K8S_MARIADB_VERSION=10.11.18
 RUN set -eux; \
 	apt-get update; \

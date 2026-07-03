@@ -1,0 +1,203 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mariadb-auth-test
+---
+# MariaDB pod identity
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mariadb
+  namespace: mariadb-auth-test
+---
+# TokenReview caller identity
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tokenreviewer
+  namespace: mariadb-auth-test
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tokenreviewer-token
+  namespace: mariadb-auth-test
+  annotations:
+    kubernetes.io/service-account.name: tokenreviewer
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tokenreview-creator
+rules:
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mariadb-tokenreview
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tokenreview-creator
+subjects:
+- kind: ServiceAccount
+  name: tokenreviewer
+  namespace: mariadb-auth-test
+---
+# Test client ServiceAccounts
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: user1
+  namespace: mariadb-auth-test
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: user2
+  namespace: mariadb-auth-test
+---
+# Plugin config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mariadb-auth-k8s-config
+  namespace: mariadb-auth-test
+data:
+  auth_k8s.cnf: |
+    [mysqld]
+    plugin_load_add = auth_k8s
+    auth_k8s_token_path = /var/run/secrets/tokenreviewer/token
+    auth_k8s_ca_path = /var/run/secrets/tokenreviewer/ca.crt
+---
+# Init script to create plugin users
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mariadb-initdb
+  namespace: mariadb-auth-test
+data:
+  00-init-auth-plugin.sh: |
+    #!/bin/bash
+    set -eo pipefail
+    MYSQL_CMD=$(command -v mysql 2>/dev/null || command -v mariadb 2>/dev/null)
+    $MYSQL_CMD -u root <<EOF
+    CREATE USER IF NOT EXISTS 'mariadb-auth-test/user1'@'%' IDENTIFIED VIA auth_k8s;
+    GRANT ALL PRIVILEGES ON *.* TO 'mariadb-auth-test/user1'@'%';
+    CREATE USER IF NOT EXISTS 'mariadb-auth-test/user2'@'%' IDENTIFIED VIA auth_k8s;
+    GRANT ALL PRIVILEGES ON testdb.* TO 'mariadb-auth-test/user2'@'%';
+    CREATE DATABASE IF NOT EXISTS testdb;
+    FLUSH PRIVILEGES;
+    EOF
+---
+# MariaDB server pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mariadb
+  namespace: mariadb-auth-test
+  labels:
+    app: mariadb
+spec:
+  serviceAccountName: mariadb
+  containers:
+  - name: mariadb
+    image: MARIADB_IMAGE_PLACEHOLDER
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 3306
+    env:
+    - name: MYSQL_ALLOW_EMPTY_PASSWORD
+      value: "yes"
+    - name: MYSQL_DATABASE
+      value: testdb
+    volumeMounts:
+    - name: tokenreviewer-token
+      mountPath: /var/run/secrets/tokenreviewer
+      readOnly: true
+    - name: auth-k8s-config
+      mountPath: /etc/mysql/mariadb.conf.d/60-auth-k8s.cnf
+      subPath: auth_k8s.cnf
+      readOnly: true
+    - name: initdb
+      mountPath: /docker-entrypoint-initdb.d/00-init-auth-plugin.sh
+      subPath: 00-init-auth-plugin.sh
+      readOnly: true
+  volumes:
+  - name: tokenreviewer-token
+    secret:
+      secretName: tokenreviewer-token
+  - name: auth-k8s-config
+    configMap:
+      name: mariadb-auth-k8s-config
+  - name: initdb
+    configMap:
+      name: mariadb-initdb
+      defaultMode: 0755
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: mariadb-auth-test
+spec:
+  selector:
+    app: mariadb
+  ports:
+  - port: 3306
+    targetPort: 3306
+---
+# Test client pod (runs as user1 SA with projected token)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client-user1
+  namespace: mariadb-auth-test
+spec:
+  serviceAccountName: user1
+  containers:
+  - name: client
+    image: MARIADB_IMAGE_PLACEHOLDER
+    imagePullPolicy: IfNotPresent
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: token
+      mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      readOnly: true
+  volumes:
+  - name: token
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+          expirationSeconds: 3600
+---
+# Test client pod (runs as user2 SA with projected token)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client-user2
+  namespace: mariadb-auth-test
+spec:
+  serviceAccountName: user2
+  containers:
+  - name: client
+    image: MARIADB_IMAGE_PLACEHOLDER
+    imagePullPolicy: IfNotPresent
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: token
+      mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      readOnly: true
+  volumes:
+  - name: token
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+          expirationSeconds: 3600

@@ -126,6 +126,10 @@ TEST_ORDER=(
 	galera_sst_rsync
 	backup_restore
 	mariadb_user_host
+	auth_k8s_plugin_load
+	auth_k8s_user_create
+	auth_k8s_reject_no_k8s
+	auth_k8s_e2e
 )
 
 if [ "$list_tests" -eq 1 ]; then
