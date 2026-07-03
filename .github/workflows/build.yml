@@ -3,8 +3,16 @@ name: Build and Test
 on:
   push:
     branches: [master]
+    paths:
+      - '10.11/**'
+      - '.test/**'
+      - '.github/workflows/build.yml'
   pull_request:
     branches: [master]
+    paths:
+      - '10.11/**'
+      - '.test/**'
+      - '.github/workflows/build.yml'
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}
@@ -29,11 +37,14 @@ jobs:
         run: |
           docker build -t $IMAGE:build 10.11/
           VERSION=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' $IMAGE:build)
+          SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          TAG="${VERSION}-${SHA}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          docker tag $IMAGE:build $IMAGE:$VERSION
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          docker tag $IMAGE:build $IMAGE:$TAG
 
       - name: Test
-        run: .test/run.sh --xml $IMAGE:$VERSION
+        run: .test/run.sh --xml $IMAGE:$TAG
 
       - name: Upload test report
         if: always()
@@ -46,4 +57,4 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          docker push $IMAGE:$VERSION
+          docker push $IMAGE:$TAG
