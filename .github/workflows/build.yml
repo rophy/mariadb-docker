@@ -1,0 +1,49 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  build:
+    name: "10.11"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Build
+        run: |
+          docker build -t $IMAGE:build 10.11/
+          VERSION=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' $IMAGE:build)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          docker tag $IMAGE:build $IMAGE:$VERSION
+
+      - name: Test
+        run: .test/run.sh --xml $IMAGE:$VERSION
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: .test/mtr-report.xml
+
+      - name: Push
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker push $IMAGE:$VERSION
