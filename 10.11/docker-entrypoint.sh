@@ -544,6 +544,15 @@ docker_mariadb_init()
 
 	docker_setup_db
 	docker_process_init_files /docker-entrypoint-initdb.d/*
+
+	# Register bundled UDF plugins
+	docker_process_sql --database=mysql <<-EOSQL
+		SET @@SESSION.SQL_LOG_BIN=0;
+		CREATE FUNCTION IF NOT EXISTS lib_mysqludf_aes256_info RETURNS string SONAME 'lib_mysqludf_aes256.so';
+		CREATE FUNCTION IF NOT EXISTS aes256_encrypt RETURNS string SONAME 'lib_mysqludf_aes256.so';
+		CREATE FUNCTION IF NOT EXISTS aes256_decrypt RETURNS string SONAME 'lib_mysqludf_aes256.so';
+	EOSQL
+
 	# Wait until after /docker-entrypoint-initdb.d is performed before setting
 	# root@localhost password to a hash we don't know the password for.
 	if [ -n "${MARIADB_ROOT_PASSWORD_HASH}" ]; then

@@ -129,6 +129,9 @@ TEST_ORDER=(
 	auth_k8s_plugin_load
 	auth_k8s_user_create
 	auth_k8s_reject_no_k8s
+	aes256_udf_register
+	aes256_encrypt_decrypt
+	aes256_wrong_key
 	auth_k8s_e2e
 )
 

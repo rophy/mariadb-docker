@@ -1,5 +1,23 @@
 # vim:set ft=dockerfile:
 
+# Build lib_mysqludf_aes256 UDF plugin
+FROM ubuntu:jammy AS aes256-build
+ARG AES256_VERSION=1.1.0
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		build-essential libtool libmariadbd-dev \
+		ca-certificates wget; \
+	rm -rf /var/lib/apt/lists/*; \
+	wget -q -O /tmp/lib_mysqludf_aes256.tar.gz \
+		"https://github.com/rophy/lib_mysqludf_aes256/releases/download/${AES256_VERSION}/lib_mysqludf_aes256-${AES256_VERSION}.tar.gz"; \
+	mkdir /build && cd /build; \
+	tar xzf /tmp/lib_mysqludf_aes256.tar.gz --strip-components=1; \
+	mkdir -p include && cp -r /usr/include/mariadb/server/* include/; \
+	printf '#!/bin/sh\ncase "$1" in\n  --version) mariadb_config --version;;\n  --plugindir) echo "/usr/lib/mysql/plugin";;\n  --include) echo "-I/build/include";;\nesac\n' > /usr/local/bin/mysql_config; \
+	chmod +x /usr/local/bin/mysql_config; \
+	./configure && make
+
 # Build mariadb-auth-k8s plugin
 FROM ubuntu:jammy AS auth-k8s-build
 ARG AUTH_K8S_VERSION=0.2
@@ -173,6 +191,7 @@ RUN set -ex; \
 
 
 COPY --from=auth-k8s-build /build/auth_k8s.so /usr/lib/mysql/plugin/auth_k8s.so
+COPY --from=aes256-build /build/src/.libs/lib_mysqludf_aes256.so /usr/lib/mysql/plugin/lib_mysqludf_aes256.so
 
 VOLUME /var/lib/mysql
 
