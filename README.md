@@ -2,7 +2,7 @@
 
 Fork of the official [MariaDB Docker image](https://github.com/MariaDB/mariadb-docker) with bundled third-party plugins.
 
-**Image:** `ghcr.io/rophy/mariadb-server`
+**Image:** `ghcr.io/rophy/mariadb-docker`
 
 ## Bundled Plugins
 
